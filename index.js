@@ -6,6 +6,8 @@ app.use(cors());
 require("./db/config");
 const user = require("./db/user");
 const product = require("./db/product");
+const jwt = require("jsonwebtoken");
+const key = "e-comm";
 
 app.post("/signup", async (req, res) => {
   const data = new user(req.body);
@@ -19,12 +21,18 @@ app.post("/login", async (req, res) => {
   if (req.body.password && req.body.email) {
     const oneuser = await user.findOne(req.body).select("-password");
     if (oneuser) {
-      res.send(oneuser);
+      jwt.sign({ oneuser }, key, { expiresIn: "10h" }, (err, token) => {
+        if (err) {
+          res.send("error");
+        } else {
+          res.send({ oneuser, token: token });
+        }
+      });
     } else {
       res.send("user not found");
     }
   } else {
-    res.send("user not found");
+    res.send({result:"please provide a email and password"});
   }
 });
 
@@ -34,7 +42,7 @@ app.post("/product", async (req, res) => {
   res.send(result);
 });
 
-app.get("/productlist", async (req, res) => {
+app.get("/productlist", verifyToken, async (req, res) => {
   const result = await product.find();
   if (result.length > 0) {
     res.send(result);
@@ -65,6 +73,24 @@ app.put("/productUpdate/:id", async (req, res) => {
   res.send(result);
 });
 
+function verifyToken(req, res, next) {
+  const token = req.headers["authorization"];
+  console.log(token)
+  if (token) {
+     const tokenn  = token.split(' ')[1];
+     console.log(tokenn)
+    jwt.verify(tokenn, key, (err, valid) => {
+      if (err) {
+        res.status(401).send({result:"please provide a  valid token"});
+      } else {
+        next();
+      }
+    });
+  } else {
+    res.status(400).send({result:"please enter a token with header"});
+  }
+}
+
 app.get("/search/:key", async (req, res) => {
   const result = await product.find({
     $or: [
@@ -77,4 +103,4 @@ app.get("/search/:key", async (req, res) => {
   res.send(result);
 });
 
-app.listen(3200);
+app.listen(3800);
